@@ -1,130 +1,149 @@
-﻿/**
- * Exposure → presumptive claims map.
+/**
+ * Exposure and service-history issue-spotting map.
  *
- * For each exposure type, lists the conditions VA presumes service-connected
- * under 38 CFR (or PACT Act / specific legislation). Each presumptive entry
- * cites the regulation so users can verify.
+ * IMPORTANT: an MOS or exposure tag is not proof of exposure, diagnosis, nexus,
+ * service connection, or rating. "Presumptive" means only that the cited authority
+ * may supply a presumption after every qualifying requirement is satisfied.
  *
- * NOT a complete list — covers the most-commonly-missed conditions per exposure.
- * "Missed claims" tool surfaces these; the existing condition pages handle full detail.
+ * Authority review: 2026-08-15.
  */
 
 import type { Exposure } from './mos-profiles';
 
-export type PresumptiveClaim = {
-  condition: string;            // human-readable condition name
-  dcCode?: string;              // diagnostic code if there's a clean mapping
-  cfrCite: string;              // the regulation that makes it presumptive
-  notes?: string;               // why it's frequently missed
-  conditionPagePath?: string;   // optional link to existing /conditions/<path>
+export type ClaimClassification =
+  | 'presumptive'
+  | 'direct'
+  | 'secondary'
+  | 'exposure_lead'
+  | 'possible_theory';
+
+export type ClaimTheory = {
+  condition: string;
+  classification: ClaimClassification;
+  authority: string;
+  requirements: string;
+  dcCode?: string;
+  conditionPagePath?: string;
 };
 
-export const EXPOSURE_PRESUMPTIVES: Record<Exposure, PresumptiveClaim[]> = {
-  noise: [
-    { condition: 'Tinnitus', dcCode: '6260', cfrCite: '38 CFR § 4.87 + §3.385',
-      notes: 'Flat 10% — easiest VA claim to win and the most commonly missed if vet doesn\'t realize it\'s ratable.',
-      conditionPagePath: '/conditions/neurological/tinnitus' },
-    { condition: 'Sensorineural Hearing Loss', dcCode: '6100', cfrCite: '38 CFR § 4.85 + §3.385',
-      notes: 'Even mild bilateral loss often rates 0% but service-connected status enables secondary tinnitus and protects against future degradation.' },
-  ],
-  asbestos: [
-    { condition: 'Mesothelioma', cfrCite: 'VA M21-1 IV.ii.2.C',
-      notes: 'Long latency (20-40yr). Even decades after service, asbestos-exposed MOS = strong nexus.' },
-    { condition: 'Asbestosis', cfrCite: 'VA M21-1 IV.ii.2.C' },
-    { condition: 'Lung cancer (asbestos-related)', cfrCite: 'VA M21-1 IV.ii.2.C',
-      notes: 'Smoking history doesn\'t bar the claim if asbestos exposure documented.' },
-    { condition: 'Pleural plaques', cfrCite: 'VA M21-1 IV.ii.2.C' },
-  ],
+const directEvidenceRule =
+  'Requires evidence of a current disability and an individual connection to service; the tag alone is not proof.';
+
+export const EXPOSURE_CLAIM_THEORIES: Record<Exposure, ClaimTheory[]> = {
+  noise: [{
+    condition: 'Tinnitus or hearing loss',
+    classification: 'possible_theory',
+    authority: '38 CFR §§ 3.303, 3.385; 38 CFR §§ 4.85, 4.87',
+    requirements: 'MOS or duty history may help document noise exposure, but neither condition is presumed from MOS alone. Diagnosis and nexus evidence remain case-specific.',
+  }],
+  asbestos: [{
+    condition: 'Respiratory disease potentially associated with an individually documented asbestos exposure',
+    classification: 'exposure_lead',
+    authority: '38 CFR § 3.303',
+    requirements: directEvidenceRule,
+  }],
   burn_pits: [
-    { condition: 'Asthma diagnosed after service', dcCode: '6602', cfrCite: 'PACT Act §403 / 38 CFR §3.320',
-      notes: 'PACT Act made this presumptive for SW Asia / Afghanistan deployments. Massively under-claimed pre-2022.',
-      conditionPagePath: '/conditions/respiratory/asthma' },
-    { condition: 'Chronic rhinitis / sinusitis', cfrCite: 'PACT Act §403',
-      notes: '"Constrictive bronchiolitis" and chronic rhinitis are both on the PACT Act list.',
-      conditionPagePath: '/conditions/respiratory/rhinitis' },
-    { condition: 'Constrictive bronchiolitis', cfrCite: 'PACT Act §403' },
-    { condition: 'Pulmonary hypertension', cfrCite: 'PACT Act §403' },
-    { condition: 'Glioblastoma + select brain cancers', cfrCite: 'PACT Act §403' },
-    { condition: 'Lymphomas of any type', cfrCite: 'PACT Act §403' },
+    {
+      condition: 'Asthma, rhinitis, or sinusitis',
+      classification: 'presumptive',
+      authority: '38 CFR § 3.320(a)',
+      requirements: 'Requires a listed diagnosis and a qualifying period and location of service under § 3.320(a)(5), subject to the exceptions in § 3.320(b).',
+    },
+    {
+      condition: 'Rare respiratory cancer listed in § 3.320(a)(3)',
+      classification: 'presumptive',
+      authority: '38 CFR § 3.320(a)(3)',
+      requirements: 'Only the cancers specifically listed in the regulation qualify under this provision; qualifying service and the § 3.320(b) exceptions still apply.',
+    },
   ],
-  agent_orange: [
-    { condition: 'Type 2 Diabetes Mellitus', dcCode: '7913', cfrCite: '38 CFR §3.309(e)',
-      notes: 'Among the most-claimed and most-granted AO presumptives.',
-      conditionPagePath: '/conditions/endocrine/diabetes' },
-    { condition: 'Ischemic Heart Disease', cfrCite: '38 CFR §3.309(e)' },
-    { condition: 'Parkinson\'s Disease', cfrCite: '38 CFR §3.309(e)' },
-    { condition: 'Prostate cancer', cfrCite: '38 CFR §3.309(e)' },
-    { condition: 'Multiple myeloma', cfrCite: '38 CFR §3.309(e)' },
-    { condition: 'Hypertension', dcCode: '7101', cfrCite: 'PACT Act §406 (added 2022)',
-      notes: 'New as of 2022 — many older Vietnam vets haven\'t re-filed since the addition.',
-      conditionPagePath: '/conditions/cardiovascular/hypertension' },
-  ],
-  gulf_war_undiag: [
-    { condition: 'Chronic Fatigue Syndrome', cfrCite: '38 CFR §3.317(a)(2)(i)(B)(1)' },
-    { condition: 'Fibromyalgia', cfrCite: '38 CFR §3.317(a)(2)(i)(B)(2)' },
-    { condition: 'IBS / functional GI disorder', dcCode: '7319', cfrCite: '38 CFR §3.317(a)(2)(i)(B)(3)',
-      conditionPagePath: '/conditions/digestive/ibs' },
-    { condition: 'Undiagnosed muscle / joint pain', cfrCite: '38 CFR §3.317(a)(2)(ii)',
-      notes: 'Use §3.317 when conventional diagnostics return no clear etiology.' },
-    { condition: 'Undiagnosed sleep disturbances', cfrCite: '38 CFR §3.317(a)(2)(ii)' },
-    { condition: 'Undiagnosed neurological symptoms', cfrCite: '38 CFR §3.317(a)(2)(ii)' },
-  ],
-  camp_lejeune_water: [
-    { condition: 'Kidney cancer', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Liver cancer', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Non-Hodgkin lymphoma', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Adult leukemia', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Multiple myeloma', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Parkinson\'s Disease', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Aplastic anemia / MDS', cfrCite: '38 CFR §3.309(f)' },
-    { condition: 'Bladder cancer', cfrCite: '38 CFR §3.309(f)' },
-  ],
-  depleted_uranium: [
-    { condition: 'Kidney dysfunction', cfrCite: 'VA EHC + VHA Directive 2007-051',
-      notes: 'Vets in OIF tank crews / vehicle recovery may not realize DU exposure was tracked. Request DU surveillance records.' },
-    { condition: 'Respiratory cancers (DU-correlated)', cfrCite: 'PACT Act §403 (overlaps with burn pits)' },
-  ],
-  jet_fuel_jp8: [
-    { condition: 'Respiratory conditions (PACT)', cfrCite: 'PACT Act §403' },
-    { condition: 'Chronic dermatitis', dcCode: '7806', cfrCite: 'M21-1 IV.ii.2.C' },
-    { condition: 'Liver / kidney symptoms', cfrCite: 'VA Public Health JP-8 page' },
-  ],
-  lead: [
-    { condition: 'Hypertension', dcCode: '7101', cfrCite: 'M21-1 IV.ii.2.C',
-      notes: 'Chronic lead exposure (small arms instructors, indoor ranges) maps to hypertension.',
-      conditionPagePath: '/conditions/cardiovascular/hypertension' },
-    { condition: 'Kidney dysfunction', cfrCite: 'M21-1 IV.ii.2.C' },
-    { condition: 'Peripheral neuropathy', cfrCite: 'M21-1 IV.ii.2.C' },
-  ],
-  radiation_ionizing: [
-    { condition: 'Most cancers (broad presumption)', cfrCite: '38 CFR §3.309(d)',
-      notes: 'Radiation-Risk Activities list at §3.309(d)(3) — atomic test participation, occupation of Hiroshima/Nagasaki, nuclear weapons handling.' },
-  ],
-  mustard_gas: [
-    { condition: 'Respiratory cancers, skin cancer, leukemia', cfrCite: '38 CFR §3.316',
-      notes: 'WWII-era mustard gas testing — small but real population.' },
-  ],
-  particulate_matter: [
-    { condition: 'Same list as burn_pits — overlapping PACT Act coverage', cfrCite: 'PACT Act §403' },
-  ],
-  pfas: [
-    { condition: 'Testicular cancer', cfrCite: 'M21-1 update 2024 — AFFF / PFAS exposure' },
-    { condition: 'Kidney cancer', cfrCite: 'M21-1 update 2024' },
-    { condition: 'Thyroid disease', cfrCite: 'M21-1 update 2024' },
-    { condition: 'Ulcerative colitis', cfrCite: 'M21-1 update 2024' },
-  ],
+  agent_orange: [{
+    condition: 'Disease specifically listed in 38 CFR § 3.309(e)',
+    classification: 'presumptive',
+    authority: '38 CFR §§ 3.307(a)(6), 3.309(e)',
+    requirements: 'Requires qualifying herbicide exposure or qualifying service and a listed disease; manifestation and rebuttal rules must also be checked.',
+  }],
+  gulf_war_undiag: [{
+    condition: 'Qualifying chronic disability, including an undiagnosed illness or qualifying medically unexplained chronic multisymptom illness',
+    classification: 'presumptive',
+    authority: '38 CFR § 3.317',
+    requirements: 'Requires Persian Gulf veteran status, objective indications, chronicity, timing, and the other requirements and exceptions in § 3.317.',
+  }],
+  camp_lejeune_water: [{
+    condition: 'Disease specifically listed in 38 CFR § 3.309(f)',
+    classification: 'presumptive',
+    authority: '38 CFR §§ 3.307(a)(7), 3.309(f)',
+    requirements: 'Requires at least 30 days of qualifying Camp Lejeune service between August 1, 1953, and December 31, 1987, plus a listed disease and applicable rebuttal rules.',
+  }],
+  depleted_uranium: [{
+    condition: 'Disability potentially associated with an individually documented depleted-uranium exposure',
+    classification: 'exposure_lead',
+    authority: '38 CFR § 3.303',
+    requirements: directEvidenceRule,
+  }],
+  jet_fuel_jp8: [{
+    condition: 'Disability potentially associated with an individually documented fuel exposure',
+    classification: 'exposure_lead',
+    authority: '38 CFR § 3.303',
+    requirements: directEvidenceRule,
+  }],
+  lead: [{
+    condition: 'Disability potentially associated with an individually documented lead exposure',
+    classification: 'exposure_lead',
+    authority: '38 CFR § 3.303',
+    requirements: directEvidenceRule,
+  }],
+  radiation_ionizing: [{
+    condition: 'Disease specifically listed for a radiation-exposed veteran',
+    classification: 'presumptive',
+    authority: '38 CFR § 3.309(d)',
+    requirements: 'Requires a listed disease and participation in a defined radiation-risk activity; occupational exposure by itself does not automatically satisfy § 3.309(d).',
+  }],
+  mustard_gas: [{
+    condition: 'Condition specifically listed following qualifying full-body exposure',
+    classification: 'presumptive',
+    authority: '38 CFR § 3.316',
+    requirements: 'Requires the qualifying exposure type and a disease listed for that exposure, subject to the regulation’s exceptions.',
+  }],
+  particulate_matter: [{
+    condition: 'Disease specifically listed in 38 CFR § 3.320(a)(2) or (3)',
+    classification: 'presumptive',
+    authority: '38 CFR § 3.320',
+    requirements: 'Requires qualifying service and a listed disease, subject to the exceptions in § 3.320(b).',
+  }],
+  pfas: [{
+    condition: 'Disability potentially associated with an individually documented PFAS or AFFF exposure',
+    classification: 'exposure_lead',
+    authority: '38 CFR § 3.303',
+    requirements: 'No blanket VA disability presumption is asserted here. Exposure, diagnosis, and medical relationship require individual evidence.',
+  }],
   tbi_blast: [
-    { condition: 'TBI residuals', dcCode: '8045', cfrCite: '38 CFR §4.124a',
-      notes: 'Combat / blast exposure makes nexus straightforward — most missed because veterans don\'t realize sub-concussive blast counts.',
-      conditionPagePath: '/conditions/neurological/tbi' },
-    { condition: 'PTSD secondary to TBI', dcCode: '9411', cfrCite: '38 CFR §3.310',
-      conditionPagePath: '/conditions/mental-health/ptsd' },
-    { condition: 'Migraines secondary to TBI', dcCode: '8100', cfrCite: '38 CFR §3.310',
-      conditionPagePath: '/conditions/neurological/migraines' },
+    {
+      condition: 'TBI residuals',
+      classification: 'direct',
+      authority: '38 CFR § 3.303; 38 CFR § 4.124a, DC 8045',
+      requirements: 'Requires competent evidence of TBI and current residuals connected to service; a blast-risk occupation is not a diagnosis or nexus.',
+      dcCode: '8045',
+      conditionPagePath: '/conditions/neurological/tbi',
+    },
+    {
+      condition: 'Condition claimed as secondary to an established service-connected TBI',
+      classification: 'secondary',
+      authority: '38 CFR § 3.310',
+      requirements: 'Requires an established primary disability and competent evidence satisfying § 3.310; only the specific § 3.310(d) TBI presumptions apply automatically when their requirements are met.',
+    },
   ],
-  mst_high_risk: [
-    { condition: 'PTSD secondary to MST', dcCode: '9411', cfrCite: '38 CFR §3.304(f)(5)',
-      notes: 'MST cases use relaxed evidentiary standard. Front-line and isolated-MOS settings have higher documented incidence.',
-      conditionPagePath: '/conditions/mental-health/ptsd' },
-  ],
+  mst_high_risk: [{
+    condition: 'PTSD based on an in-service personal assault',
+    classification: 'direct',
+    authority: '38 CFR § 3.304(f)(5)',
+    requirements: 'The regulation permits evidence from sources other than service records and evidence of behavior changes. An occupational tag does not establish that an assault occurred.',
+    dcCode: '9411',
+    conditionPagePath: '/conditions/mental-health/ptsd',
+  }],
 };
+
+/**
+ * @deprecated Use EXPOSURE_CLAIM_THEORIES and inspect each entry's classification.
+ * This alias remains temporarily for consumers of the original public data shape.
+ */
+export const EXPOSURE_PRESUMPTIVES = EXPOSURE_CLAIM_THEORIES;
